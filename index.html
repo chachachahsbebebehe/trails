@@ -188,7 +188,7 @@ body.touch #spawnm .card{min-height:92px}body.touch #spawnm .grid{grid-template-
   <div class="row"><span>Show FPS</span><input id="s-fps" type="checkbox"></div>
   <div class="row"><span>Invert look Y</span><input id="s-inv" type="checkbox"></div>
   <div class="row"><span>Touch look sensitivity</span><input id="s-tsens" type="range" min="0.3" max="3" step="0.1"></div>
-  <div class="row"><span>Auto-fire on target (touch)</span><input id="s-af" type="checkbox"></div>
+  <div class="row" style="display:none"><span>Auto-fire</span><input id="s-af" type="checkbox"></div>
   <div class="row"><span>Aim assist (touch)</span><input id="s-aa" type="checkbox"></div>
   <div class="row"><span>Tap screen to aim (touch)</span><input id="s-tap" type="checkbox"></div>
   <div class="row"><span>Auto resolution for smooth FPS</span><input id="s-dyn" type="checkbox"></div>
@@ -224,8 +224,8 @@ const V3 = THREE.Vector3;
 const _v1 = new V3(), _v2 = new V3(), _v3 = new V3(), _v4 = new V3(), _q1 = new THREE.Quaternion(), _m1 = new THREE.Matrix4();
 
 const SETTINGS_KEY = 'ragdoll-rampage-settings', SAVE_KEY = 'ragdoll-rampage-save';
-const SET = Object.assign({ quality: 'low', sens: 1, blood: 1, showFps: false, invert: false, tsens: 1, autofire: IS_TOUCH, assist: true, tapAds: true, dynres: IS_TOUCH }, (() => { try { return JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {}; } catch (e) { return {}; } })());
-if (IS_TOUCH && !SET.mob2) { SET.mob2 = 1; SET.quality = 'low'; SET.autofire = true; SET.assist = true; SET.tapAds = true; SET.dynres = true; if (!SET.tsens) SET.tsens = 1; try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(SET)); } catch (e) { } }
+const SET = Object.assign({ quality: 'low', sens: 1, blood: 1, showFps: false, invert: false, tsens: 1, autofire: false, assist: true, tapAds: true, dynres: IS_TOUCH }, (() => { try { return JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {}; } catch (e) { return {}; } })());
+if (IS_TOUCH && !SET.mob2) { SET.mob2 = 1; SET.quality = 'low'; SET.autofire = false; SET.assist = true; SET.tapAds = true; SET.dynres = true; if (!SET.tsens) SET.tsens = 1; try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(SET)); } catch (e) { } }
 function saveSettings() { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(SET)); } catch (e) { } }
 const SAVE = Object.assign({ done: {}, best: {}, loadout: {}, weapon: 'pistol', kills: 0 }, (() => { try { return JSON.parse(localStorage.getItem(SAVE_KEY)) || {}; } catch (e) { return {}; } })());
 function saveGame() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(SAVE)); } catch (e) { } }
@@ -2679,8 +2679,8 @@ function touchFrame(dt) {
   if (!IS_TOUCH || G.state !== 'play') { TOUCH.autoFire = TOUCH.autoTarget = false; TOUCH.friction = 0; return; }
   const w = curW(); const ok = (w.cls === 'gun') && WS.reload <= 0 && PL.alive && !G.spawnOpen && !G.wheelOpen && !PL.grab;
   aaT -= dt; if (aaT <= 0) { aaT = .066; camDir(_sd);
-    let on = false; if (ok && SET.autofire !== false) { const range = w.pellets ? 28 : w.id === 'pistol' || w.id === 'smg' ? 70 : 160; const wh = rayWorld(camera.position, _sd, range); const bh = rayBodies(camera.position, _sd, wh ? wh.t : range); on = !!(bh && bh.body && validTarget(bh.body)); }
-    TOUCH.autoTarget = on; TOUCH.autoFire = on;
+    let on = false; if (ok) { const range = w.pellets ? 28 : w.id === 'pistol' || w.id === 'smg' ? 70 : 160; const wh = rayWorld(camera.position, _sd, range); const bh = rayBodies(camera.position, _sd, wh ? wh.t : range); on = !!(bh && bh.body && validTarget(bh.body)); }
+    TOUCH.autoTarget = on; TOUCH.autoFire = false;
     aaTgt = null; if (SET.assist !== false && w.cls !== 'throw' && PL.alive) { let best = .14; for (const b of BODIES) { if (!validTarget(b) || !b.segs || !b.segs.torso) continue; segC(b.segs.torso, _ac).sub(camera.position); const d = _ac.length(); if (d < 1 || d > 130) continue; const dot = _ac.dot(_sd) / d; if (dot < .99) continue; const ang = Math.sqrt(Math.max(0, 1 - dot * dot)); if (ang < best) { _ad.copy(_ac).divideScalar(d); const wh = rayWorld(camera.position, _ad, d - .4); if (wh) continue; best = ang; aaTgt = { b, ang }; } } }
     TOUCH.friction = aaTgt && aaTgt.ang < .07 ? .45 * (1 - aaTgt.ang / .07) + .1 : 0;
   }
@@ -2706,7 +2706,7 @@ const fpsEl = $('fps'); let last = performance.now(), fpsAcc = 0, fpsN = 0, fpsT
 function menuScene() { loadMap('warehouse'); placePlayer(); PL.yaw = Math.PI * .92; PL.pitch = -.08; for (let i = 0; i < 3; i++) spawnPerson(['civ', 'enemy', 'heavy'][i], -2 + i * 2, 0, 6 - i * .5, 0); G.aiOn = false; }
 { const _lm = loadMap; loadMap = function (id) { _lm(id); casReset(); }; }
 menuScene(); equip(SAVE.weapon || 'pistol');
-if (IS_TOUCH) $('mainhint').textContent = 'Touch: drag the left side to move, drag the right side to look. Tap the screen to aim down sights. GUNS opens the weapon wheel. Auto-fire and aim assist are on (Settings). Runs fully offline.';
+if (IS_TOUCH) $('mainhint').textContent = 'Touch: drag the left side to move, drag the right side to look. Tap the screen to aim down sights. GUNS opens the weapon wheel. Press FIRE to shoot. Aim assist is on (Settings). Runs fully offline.';
 function step(now) {
   requestAnimationFrame(step);
   let dt = Math.min(.05, (now - last) / 1000) * (G.dbgTs == null ? 1 : G.dbgTs); last = now; // dbgTs: test-only frame-step scale
@@ -2721,7 +2721,7 @@ function step(now) {
   }
   if (playing) {
     playerUpdate(dt); touchFrame(dt);
-    const firing = !G.wheelOpen && ((MOUSE.l && (MOUSE.locked || IS_TOUCH || G.testInput)) || TOUCH.fire || TOUCH.autoFire);
+    const firing = !G.wheelOpen && ((MOUSE.l && (MOUSE.locked || IS_TOUCH || G.testInput)) || TOUCH.fire);
     const aiming = (MOUSE.r && !PL.grab) || TOUCH.aim;
     if (PL.alive && !G.spawnOpen) weaponUpdate(dt * (G.slow ? .6 : 1), firing, aiming); else weaponUpdate(dt, false, false);
     if (G.mode === 'mission') missionUpdate(sdtSafe(dt * ts));
